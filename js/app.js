@@ -21,7 +21,7 @@
 
   /* ---------------- storage ---------------- */
   function defaultState() {
-    return { cards: {}, read: {}, mocks: {}, settings: { n: 20, recall: true, theme: 'auto' }, filter: { area: 'all', onlyA: false } };
+    return { cards: {}, read: {}, mocks: {}, settings: { n: 20, recall: true, theme: 'auto' }, filter: { area: 'all', onlyA: true } };
   }
   function loadState() {
     var s = null;
@@ -66,10 +66,17 @@
     for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
     return a;
   }
+  // 表記ゆれの吸収: 旧字体・附属/付属・大学/大・ヶ/ケ など
+  var VARIANT = { '應': '応', '澤': '沢', '國': '国', '學': '学', '齋': '斎', '齊': '斉', '髙': '高', '﨑': '崎', '邊': '辺', '邉': '辺', '藏': '蔵', '濱': '浜', '櫻': '桜', '附': '付', 'ヶ': 'ケ', 'ヵ': 'カ', 'ゞ': '', '々': '々' };
   function normText(s) {
-    return String(s || '').normalize('NFKC').toLowerCase()
+    var t = String(s || '').normalize('NFKC').toLowerCase()
       .replace(/[\s　・･,，、。.「」『』()（）]/g, '')
-      .replace(/(中等教育学校|高等学校|中学校|高校|中学|学校)$/, '');
+      .replace(/[應澤國學齋齊髙﨑邊邉藏濱櫻附ヶヵ]/g, function (c) { return VARIANT[c]; })
+      .replace(/大学/g, '大');
+    // 末尾の「中学校」「高等学校」「学園」などは重なっていても全部外す（例: 洗足学園中学校 → 洗足）
+    var prev;
+    do { prev = t; t = t.replace(/(中等教育学校|高等学校|高等部|中学校|中等部|高校|中学|学校|学園|学院)$/, ''); } while (t !== prev && t.length > 1);
+    return t || prev;
   }
   function parseNum(s) {
     var t = String(s || '').normalize('NFKC').replace(/[,，\s]/g, '').replace(/[^0-9.\-]/g, '');
@@ -312,7 +319,7 @@
   }
 
   function viewHome() {
-    var c = counts(D.cards), total = D.cards.length || 1;
+    var scope = filtered(), c = counts(scope), total = scope.length || 1;
     var dl = daysLeft();
     var dayHtml = dl > 0
       ? '<span class="lbl">本番 ' + EXAM.label + ' まで</span><div><span class="big tnum">' + dl + '</span><span>日</span></div>'
@@ -332,7 +339,7 @@
       '<section class="hero"><div class="row"><div>' + dayHtml + '</div>' +
       '<div style="text-align:right"><div class="lbl">' + dueLabel + '</div><div class="due tnum">' + dueNum + '<span style="font-size:14px;font-weight:500"> 枚</span></div></div></div>' +
       '<div><div class="bar"><div class="a" style="width:' + (c.mastered / total * 100) + '%"></div><div class="b" style="width:' + (c.learning / total * 100) + '%"></div></div>' +
-      '<div class="legend tnum" style="margin-top:6px"><span>定着 ' + c.mastered + '</span><span style="opacity:.85">学習中 ' + c.learning + '</span><span style="opacity:.85">未学習 ' + c.fresh + '</span></div></div>' +
+      '<div class="legend tnum" style="margin-top:6px"><span>' + (S.filter.onlyA ? '最重要' : '全') + scope.length + '枚：</span><span>定着 ' + c.mastered + '</span><span style="opacity:.85">学習中 ' + c.learning + '</span><span style="opacity:.85">未学習 ' + c.fresh + '</span></div></div>' +
       '<button class="cta" data-act="quick">' + (c.due > 0 ? '今日の復習をはじめる' : 'ドリルをはじめる') + ICON.arrow + '</button></section>' +
       '<div class="sec-ttl">モード</div><div class="modes">' +
       '<a class="mode" href="#/read">' + ICON.book + '<div><div class="n">読む</div><div class="d">' + D.reading.length + '章のうち ' + readN + '章読了</div></div></a>' +
@@ -350,7 +357,7 @@
     return topbar({ back: '#/', mid: ttl('ドリル', '出題の設定') }) +
       '<div class="sec-ttl">範囲</div><div class="filter">' + areas.map(function (a) {
         return '<button data-act="area" data-v="' + a[0] + '" aria-pressed="' + (S.filter.area === a[0]) + '">' + a[1] + '</button>';
-      }).join('') + '<button data-act="onlyA" aria-pressed="' + S.filter.onlyA + '">最重要だけ</button></div>' +
+      }).join('') + '<button data-act="onlyA" aria-pressed="' + S.filter.onlyA + '">最重要だけ（' + D.cards.filter(function (k) { return k.imp === 'A'; }).length + '枚）</button></div>' +
       '<div class="sheet" style="margin-top:16px"><div class="opt-row"><span>まだ解いていないカード</span><strong class="tnum">' + c.fresh + '枚</strong></div>' +
       '<div class="opt-row"><span>学習中のカード</span><strong class="tnum">' + c.learning + '枚</strong></div>' +
       '<div class="opt-row"><span>定着したカード</span><strong class="tnum">' + c.mastered + '枚</strong></div>' +
@@ -404,7 +411,7 @@
     html += '<section class="answer"><span class="lbl">正解</span><div class="val tnum">' + esc(answerText(q)) + '</div>' +
       '<p class="fact">' + esc(card.fact) + '</p>' +
       (card.prev ? '<div class="prev tnum">' + esc(card.prev) + '</div>' : '') +
-      '<span class="src">出典 ' + esc(card.src) + '</span></section>';
+      (card.ref ? '<span class="src">資料外・参考：' + esc(card.src) + '</span>' : '') + '</section>';
     if (!r.ok && q.t === 'text') html += '<div style="padding:0 20px"><button class="linkbtn" data-act="override">表記ちがいで、実は合っていた → 正解にする</button></div>';
     if (r.laterIn != null) {
       var left = session.need[c.id];
@@ -506,7 +513,7 @@
         }
         if (sub) {
           var ok = grade(q, r), card = D.byId[q.card];
-          body += '<div class="res ' + (ok ? 'ok' : 'ng') + '"><strong>' + (ok ? '正解' : '不正解') + '</strong>　正解：' + esc(answerText(q)) + (card ? '<br><span class="small">' + esc(card.fact) + '（' + esc(card.src) + '）</span>' : '') + '</div>';
+          body += '<div class="res ' + (ok ? 'ok' : 'ng') + '"><strong>' + (ok ? '○' : '×') + '</strong>　答え：' + esc(answerText(q)) + (card ? '<br><span class="small">' + esc(card.fact) + '</span>' : '') + '</div>';
         }
         html += body + '</div>';
         no++;
@@ -681,7 +688,7 @@
     var act = el.getAttribute('data-act');
     var c = session && session.cur;
     switch (act) {
-      case 'quick': startSession(pickCards(D.cards, S.settings.n), 'drill', 'ドリル', '#/'); break;
+      case 'quick': startSession(pickCards(filtered(), S.settings.n), 'drill', 'ドリル', '#/'); break;
       case 'area': S.filter.area = el.getAttribute('data-v'); save(); render(); break;
       case 'onlyA': S.filter.onlyA = !S.filter.onlyA; save(); render(); break;
       case 'start-drill': startSession(pickCards(filtered(), S.settings.n), 'drill', 'ドリル', '#/drill'); break;
