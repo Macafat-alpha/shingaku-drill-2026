@@ -782,6 +782,22 @@
       return r.json();
     });
   }
+  // 更新の検知: 画面に戻ったとき（ホーム画面アプリの再開を含む）にデータの版を確かめ、新しければ知らせる
+  function checkUpdate() {
+    if (!D.version) return;
+    fetch('data/cards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || j.version === D.version || document.getElementById('updbar')) return;
+      var bar = document.createElement('div');
+      bar.id = 'updbar';
+      bar.className = 'updbar';
+      bar.innerHTML = '<span>新しい内容があります</span><button type="button">更新</button>';
+      bar.querySelector('button').addEventListener('click', function () { location.reload(); });
+      document.body.appendChild(bar);
+    }).catch(function () {});
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkUpdate(); });
+  setInterval(checkUpdate, 10 * 60 * 1000);
+
   applyTheme();
   Promise.all([load('cards'), load('mocks'), load('reading'), load('hayami')]).then(function (res) {
     D.version = res[0].version;
