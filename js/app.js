@@ -798,6 +798,15 @@
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkUpdate(); });
   setInterval(checkUpdate, 10 * 60 * 1000);
 
+  if ('serviceWorker' in navigator) {
+    // 新しい版の sw.js が有効になったら、一度だけ読み込み直して最新を表示する
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
+  }
+
   applyTheme();
   Promise.all([load('cards'), load('mocks'), load('reading'), load('hayami')]).then(function (res) {
     D.version = res[0].version;
