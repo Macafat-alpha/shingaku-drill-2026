@@ -180,10 +180,16 @@
       return (x.box - y.box) || (y.ng - x.ng) || (x.due - y.due);
     });
     var fresh = list.filter(function (c) { var s = S.cards[c.id]; return !s || s.box === 0; });
-    fresh.sort(function (a, b) {
-      var ra = S.read[a.ch] ? 0 : 1, rb = S.read[b.ch] ? 0 : 1;
-      return (ra - rb) || (IMP_RANK[a.imp] - IMP_RANK[b.imp]) || (a.ord - b.ord);
-    });
+    // 新しいカードは章ごとに重要度順に並べ、章をまたいで1枚ずつ交互に出す（1つの章に偏らない）
+    var byCh = {}, order = [];
+    fresh.sort(function (a, b) { return (IMP_RANK[a.imp] - IMP_RANK[b.imp]) || (a.ord - b.ord); });
+    fresh.forEach(function (c) { if (!byCh[c.ch]) { byCh[c.ch] = []; order.push(c.ch); } byCh[c.ch].push(c); });
+    order = shuffle(order);
+    fresh = [];
+    for (var k = 0, more = true; more; k++) {
+      more = false;
+      order.forEach(function (ch) { if (byCh[ch][k]) { fresh.push(byCh[ch][k]); more = true; } });
+    }
     var out = due.slice(0, n);
     for (var i = 0; out.length < n && i < fresh.length; i++) out.push(fresh[i]);
     if (!out.length) {
