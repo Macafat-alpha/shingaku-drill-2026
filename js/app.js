@@ -619,7 +619,7 @@
   /* settings */
   function viewSettings() {
     return topbar({ back: '#/', mid: ttl('設定', '設定と記録') }) +
-      '<div class="sheet"><div class="opt-row"><label for="rc">選択肢の前に、頭の中で答えを決める</label><input type="checkbox" id="rc" data-act="recall"' + (S.settings.recall ? ' checked' : '') + '></div>' +
+      '<div class="sheet"><div class="opt-row"><label for="rc">選択肢を最初は隠しておく</label><input type="checkbox" id="rc" data-act="recall"' + (S.settings.recall ? ' checked' : '') + '></div>' +
       '<div class="opt-row"><label for="th">表示</label><select id="th" data-act="theme">' + [['auto', '端末に合わせる'], ['light', 'ライト'], ['dark', 'ダーク']].map(function (o) {
         return '<option value="' + o[0] + '"' + (S.settings.theme === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join('') + '</select></div></div>' +
