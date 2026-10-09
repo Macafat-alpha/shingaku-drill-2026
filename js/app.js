@@ -396,7 +396,7 @@
     var dock = '<div class="dock">' + (hidden ? '' : '<div class="two">' +
       '<button class="btn" data-act="submit" data-conf="guess"' + (can ? '' : ' disabled') + '>勘で答えた</button>' +
       '<button class="btn primary" data-act="submit" data-conf="sure"' + (can ? '' : ' disabled') + '>確信あり</button></div>') +
-      '<button class="linkbtn" data-act="dunno" style="text-align:center">わからない</button></div>';
+      '<button class="linkbtn dunno" data-act="dunno">わからない</button></div>';
     return head + chips + body + '<div class="spacer"></div>' + dock;
   }
 
@@ -405,7 +405,7 @@
     if (r.ok) {
       html += '<section class="verdict ok"><div class="h"><span class="badge">' + ICON.ok + '</span><span>' + (r.overridden ? '正解にしました' : (r.conf === 'guess' ? '正解。勘で答えた問題は、確認のためもう一度出題されます' : '正解')) + '</span></div></section>';
     } else {
-      html += '<section class="verdict ng"><div class="h"><span class="badge">' + ICON.ng + '</span><span>あなたの答え：' + esc(respText(q, c.resp)) + '</span></div>' +
+      html += '<section class="verdict ng"><div class="h"><span class="badge">' + ICON.ng + '</span><span>' + (r.conf === 'none' ? 'わからない（答えを見ました）' : 'あなたの答え：' + esc(respText(q, c.resp))) + '</span></div>' +
         wrongNote(card, q, c.resp) + '</section>';
     }
     html += '<section class="answer"><span class="lbl">正解</span><div class="val tnum">' + esc(answerText(q)) + '</div>' +
@@ -703,7 +703,7 @@
         if (inp) c.resp = inp.value;
         if (!hasResp(c.q, c.resp)) return;
         submit(el.getAttribute('data-conf')); window.scrollTo(0, 0); break;
-      case 'dunno': finishAnswer(false, 'none'); window.scrollTo(0, 0); break;
+      case 'dunno': c.resp = c.q.t === 'multi' ? [] : null; finishAnswer(false, 'none'); window.scrollTo(0, 0); break;
       case 'override': overrideCorrect(); break;
       case 'next': session.p++; nextItem(); render(); window.scrollTo(0, 0); break;
       case 'weak-one': startSession([el.getAttribute('data-id')], 'drill', 'ドリル', '#/'); break;

@@ -290,3 +290,5 @@ body.night { background: var(--night); }
 /* update banner */
 .updbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 50; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; background: var(--ink); color: var(--surface); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; max-width: calc(100% - 32px); }
 .updbar button { height: 40px; padding: 0 16px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-weight: 700; }
+
+.dock .linkbtn.dunno { align-self: center; margin-top: 10px; min-height: 44px; padding: 0 20px; }
