@@ -94,6 +94,7 @@
     bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
     ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
     ng: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10"/><path d="M17 7L7 17"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     again: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>'
   };
 
@@ -346,6 +347,7 @@
       '<a class="mode" href="#/drill">' + ICON.check + '<div><div class="n">ドリル</div><div class="d">忘れかけを優先して出題</div></div></a>' +
       '<a class="mode" href="#/mock">' + ICON.clock + '<div><div class="n">予想問題</div><div class="d">本番形式 50問・20分' + (bestMock != null ? '<br>最高 ' + bestMock + '点' : '') + '</div></div></a>' +
       '<a class="mode warm" href="#/final">' + ICON.bolt + '<div><div class="n">試験直前</div><div class="d">早見表と弱点の一周</div></div></a></div>' +
+      '<a class="mode wide" href="#/list">' + ICON.search + '<div><div class="n">一覧・検索</div><div class="d">すべての問題と答えを見る</div></div></a>' +
       '<div class="sec-ttl"><span>よく間違えるカード</span>' + (weak.length ? '<button data-act="weak-all">まとめて復習</button>' : '') + '</div>' +
       '<div class="list">' + weakHtml + '</div>' +
       '<div class="foot"><div>学習の記録はこのスマホに残ります。別の端末やブラウザでは引き継がれません。</div></div>';
@@ -583,13 +585,17 @@
   }
 
   /* final */
-  var finalTab = 'hayami', finalHide = true, revealed = {};
+  var finalTab = 'hayami', finalHide = true, revealed = {}, hayamiTab = -1;
   function viewFinal() {
     var html = '<div class="night-wrap">' + topbar({ back: '#/', mid: ttl('試験直前', finalTab === 'hayami' ? '合格実績の早見表' : '弱点を一周') }) +
       '<div class="seg"><button data-act="ftab" data-v="hayami" aria-pressed="' + (finalTab === 'hayami') + '">早見表</button><button data-act="ftab" data-v="loop" aria-pressed="' + (finalTab === 'loop') + '">弱点を一周</button></div>';
     if (finalTab === 'hayami') {
       html += '<div class="seg" style="margin-top:10px"><button data-act="fhide" data-v="1" aria-pressed="' + finalHide + '">数字を隠す</button><button data-act="fhide" data-v="0" aria-pressed="' + !finalHide + '">すべて表示</button></div>';
+      html += '<div class="filter tabs-scroll night-tabs" style="margin-top:12px">' + ['<button data-act="htab" data-v="-1" aria-pressed="' + (hayamiTab === -1) + '">すべて</button>'].concat(D.hayami.map(function (g, gi) {
+        return '<button data-act="htab" data-v="' + gi + '" aria-pressed="' + (hayamiTab === gi) + '">' + esc(g.short || g.title.replace(/^(中学入試|高校入試) 2026 /, '').replace(/2026年度 /, '').replace(/ 2026（大学通信・参考）/, '')) + '</button>';
+      })).join('') + '</div>';
       D.hayami.forEach(function (g, gi) {
+        if (hayamiTab !== -1 && hayamiTab !== gi) return;
         html += '<div class="hy-h">' + esc(g.title) + '</div><div class="hy">' + g.rows.map(function (r, ri) {
           var key = gi + '-' + ri;
           var show = !finalHide || revealed[key];
@@ -614,6 +620,69 @@
         var x = S.cards[a.id] || { ng: 0 }, y = S.cards[b.id] || { ng: 0 };
         return (y.ng - x.ng) || (IMP_RANK[a.imp] - IMP_RANK[b.imp]) || (a.ord - b.ord);
       }).map(function (c) { return c.id; });
+  }
+
+  /* list: すべてのカードを一覧・検索 */
+  var listTab = 'all', listQuery = '';
+  function listTabs() {
+    return [['all', 'すべて'], ['mokuhyo', '目標'], ['中学', '中学'], ['高校', '高校'], ['todai', '東大']];
+  }
+  function inListTab(c) {
+    if (listTab === 'all') return true;
+    if (listTab === 'mokuhyo') return c.id.indexOf('mokuhyo-') === 0;
+    if (listTab === 'todai') return c.ch === 'kou-todai';
+    return c.area === listTab && c.id.indexOf('mokuhyo-') !== 0 && c.ch !== 'kou-todai';
+  }
+  function searchText(c) {
+    if (!c._s) {
+      var parts = [c.title, c.fact, c.prev, c.confuse];
+      c.qs.forEach(function (q) { parts.push(q.q, answerText(q)); if (q.c) parts.push(q.c.join(' ')); });
+      c._s = normSearch(parts.join(' '));
+    }
+    return c._s;
+  }
+  function normSearch(s) { return String(s || '').normalize('NFKC').toLowerCase().replace(/[\s,，、・]/g, '').replace(/[應]/g, '応'); }
+  function mainAnswer(c) {
+    var q = c.qs.filter(function (x) { return x.t === 'num' || x.t === 'text'; })[0] || c.qs[0];
+    return answerText(q);
+  }
+  function listItems() {
+    var words = normSearch(listQuery) ? listQuery.split(/[\s　]+/).map(normSearch).filter(Boolean) : [];
+    var chTitle = {};
+    D.reading.forEach(function (r) { chTitle[r.id] = r.title; });
+    var items = D.cards.filter(function (c) {
+      if (!inListTab(c)) return false;
+      var t = searchText(c);
+      return words.every(function (w) { return t.indexOf(w) >= 0; });
+    });
+    if (words.length) {
+      // 見出し（タイトル）に検索語を含むカードを先に出す
+      var score = function (c) { var tt = normSearch(c.title); return words.filter(function (w) { return tt.indexOf(w) >= 0; }).length; };
+      items = items.map(function (c, i) { return [score(c), i, c]; }).sort(function (x, y) { return (y[0] - x[0]) || (x[1] - y[1]); }).map(function (x) { return x[2]; });
+    }
+    var html = '<div class="list-count small muted">' + items.length + '枚</div>';
+    var lastCh = null;
+    items.forEach(function (c) {
+      if (!words.length && c.ch !== lastCh) { html += '<div class="list-ch">' + esc(chTitle[c.ch] || c.ch) + '</div>'; lastCh = c.ch; }
+      var s = S.cards[c.id];
+      var mark = s && s.ng > 0 ? '<span class="lmark ng">×' + s.ng + '</span>' : (s && s.box >= 3 ? '<span class="lmark ok">定着</span>' : '');
+      html += '<details class="litem"><summary><span class="lt">' + (c.imp === 'A' ? '<span class="lA">最重要</span>' : '') + esc(c.title) + mark + '</span>' +
+        '<span class="la">' + esc(mainAnswer(c)) + '</span></summary>' +
+        '<div class="ld"><p>' + esc(c.fact) + '</p>' + (c.prev ? '<p class="lp tnum">' + esc(c.prev) + '</p>' : '') +
+        c.qs.map(function (q) { return '<div class="lq"><div>' + esc(q.q) + '</div>' + (q.c ? '<div class="lc">' + q.c.map(function (t, i) { return KANA[i] + ' ' + esc(t); }).join('　') + '</div>' : '') + '<div class="lans">答え：' + esc(answerText(q)) + '</div></div>'; }).join('') +
+        (c.ref ? '<div class="small muted">資料外・参考：' + esc(c.src) + '</div>' : '') +
+        '<button class="btn" data-act="list-drill" data-id="' + esc(c.id) + '" style="height:44px;margin-top:6px">このカードを解く</button></div></details>';
+    });
+    if (!items.length) html += '<div class="empty">見つかりませんでした。</div>';
+    return html;
+  }
+  function viewList() {
+    return topbar({ back: '#/', surface: true, mid: ttl('一覧', 'すべての問題') }) +
+      '<div class="list-search"><input id="lq" type="search" inputmode="search" placeholder="検索（例：開成　早実　占有率）" aria-label="問題を検索" value="' + esc(listQuery) + '"></div>' +
+      '<div class="filter tabs-scroll">' + listTabs().map(function (t) {
+        return '<button data-act="ltab" data-v="' + t[0] + '" aria-pressed="' + (listTab === t[0]) + '">' + t[1] + '</button>';
+      }).join('') + '</div>' +
+      '<div id="lbody">' + listItems() + '</div><div class="spacer"></div>';
   }
 
   /* settings */
@@ -646,6 +715,7 @@
       case 'mock': html = p[1] ? viewMock(decodeURIComponent(p[1])) : viewMockList(); break;
       case 'final': html = viewFinal(); break;
       case 'settings': html = viewSettings(); break;
+      case 'list': html = viewList(); break;
       default: html = viewHome();
     }
     app.innerHTML = html;
@@ -745,6 +815,9 @@
       case 'mock-submit': submitMock(false); break;
       case 'mock-retry': var mid = mockRun.id; mockRun = null; startMock(mid); render(); window.scrollTo(0, 0); break;
       case 'ftab': finalTab = el.getAttribute('data-v'); render(); break;
+      case 'htab': hayamiTab = +el.getAttribute('data-v'); render(); break;
+      case 'ltab': listTab = el.getAttribute('data-v'); render(); break;
+      case 'list-drill': startSession([el.getAttribute('data-id')], 'drill', 'ドリル', '#/list'); break;
       case 'fhide': finalHide = el.getAttribute('data-v') === '1'; revealed = {}; render(); break;
       case 'freveal': revealed[el.getAttribute('data-k')] = true; render(); break;
       case 'final-loop': startSession(finalIds().slice(0, 40), 'final', '試験直前', '#/final'); break;
@@ -755,6 +828,7 @@
   });
   app.addEventListener('input', function (e) {
     var el = e.target;
+    if (el.id === 'lq') { listQuery = el.value; var lb = document.getElementById('lbody'); if (lb) lb.innerHTML = listItems(); return; }
     if (el.id === 'ans' && session && session.cur) {
       session.cur.resp = el.value;
       var can = hasResp(session.cur.q, el.value);
